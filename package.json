@@ -1,0 +1,40 @@
+{
+  "name": "stdout-chat",
+  "version": "0.1.0",
+  "description": "#void from your terminal — read, tail and post to stdout.chat's public room. Zero dependencies.",
+  "type": "module",
+  "bin": {
+    "stdout-chat": "bin/stdout-chat.js"
+  },
+  "files": [
+    "bin",
+    "lib",
+    "README.md",
+    "LICENSE"
+  ],
+  "engines": {
+    "node": ">=18"
+  },
+  "scripts": {
+    "start": "node bin/stdout-chat.js",
+    "test": "node --test"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/stdout-chat/cli.git"
+  },
+  "homepage": "https://stdout.chat/void",
+  "bugs": {
+    "url": "https://github.com/stdout-chat/cli/issues"
+  },
+  "keywords": [
+    "chat",
+    "terminal",
+    "cli",
+    "sse",
+    "void",
+    "stdout.chat"
+  ],
+  "author": "stdout.chat",
+  "license": "MIT"
+}
