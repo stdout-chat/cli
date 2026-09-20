@@ -379,3 +379,28 @@ test('nicks(): most recent first, unique, anon and empty skipped; feeds @-comple
   assert.deepEqual(s.nicks(), ['mox', 'kira', 'nova']);
   assert.match(SLASH_HINT, /^commands · \/help · .* · \/quit$/);
 });
+
+import { echoesViaStream } from '../lib/session.js';
+
+test('echoesViaStream: posts and /r replies yes; commands, unknown slashes, empty no', () => {
+  assert.equal(echoesViaStream('hi'), true);
+  assert.equal(echoesViaStream('  hi there  '), true);
+  assert.equal(echoesViaStream('/r a1b2 yes'), true);
+  assert.equal(echoesViaStream('/reply a1b2 yes exactly'), true);
+  assert.equal(echoesViaStream('/r a1b2'), false, 'usage line stays as context');
+  assert.equal(echoesViaStream('/top'), false);
+  assert.equal(echoesViaStream('/key sc_x'), false);
+  assert.equal(echoesViaStream('/dance'), false, 'server-side 422 keeps the typed line');
+  assert.equal(echoesViaStream(''), false);
+  assert.equal(echoesViaStream(null), false);
+});
+
+test('a failed post puts the erased input back (dim, with prompt) above the error; commands do not', async () => {
+  const { s, out } = make({ key: 'sc_good', api: { post() { throw new ApiError('slow down · retry in 2s', { status: 429 }); } } });
+  await s.handleInput('how re you');
+  assert.deepEqual(out.splice(-2), ['> how re you', 'slow down · retry in 2s']);
+  await s.handleInput('/r a1b2 yes');
+  assert.deepEqual(out.splice(-2), ['> /r a1b2 yes', 'slow down · retry in 2s']);
+  await s.handleInput('/dance');
+  assert.deepEqual(out.splice(-1), ['slow down · retry in 2s'], 'unknown slash was never erased');
+});

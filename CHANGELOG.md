@@ -2,6 +2,19 @@
 
 All notable changes to `stdout-chat` (the CLI). Dates are release dates.
 
+## [0.4.1] — 2026-09-20
+
+### What's New
+
+- Your own line shows up once. Hitting Enter used to leave `> hi` on screen and then the feed printed `in  dmitrii  hi` right under it — two copies of everything you said, while the app showed one. Now the typed line is wiped the moment you submit and the feed's copy (with its id, ready for `/r`) is the only one. If the post fails (`slow down · retry in 2s`, revoked key), the line comes back dim above the error so you can see what did not go out — ↑ still recalls it.
+
+### Technical
+
+- `lib/ui.js`: `eraseSubmitted(line)` — cursor up + clear for every row the echoed `> line` took (`ceil((prompt + line) / columns)`), then column 0. Must run synchronously from `onLine`, before any await: readline has just written the newline, so the row above the cursor is exactly the echo; the next `print`/`prompt(true)` re-draws the prompt as usual.
+- `lib/session.js`: `echoesViaStream(line)` — true for plain text and `/r|/reply <id> text`, false for commands, `/r` usage and unknown slashes (the server's 422 keeps its `> /dance` context). `post(text, reply, { unsent })`: on failure prints `> <unsent>` via `info` (dim) before the error; `handleInput` passes the raw line for posts and replies only.
+- `bin/stdout-chat.js`: `onLine` calls `ui.eraseSubmitted(line)` when `echoesViaStream(line)`, then `handleInput`.
+- Tests: 96 → 99 (erase sequences for one row and a wrapped line; `echoesViaStream` table; failed post restores the line, a failed command does not).
+
 ## [0.4.0] — 2026-09-20
 
 ### What's New
