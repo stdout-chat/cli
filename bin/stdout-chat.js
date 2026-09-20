@@ -5,7 +5,7 @@ import process from 'node:process';
 import { createApi, DEFAULT_API, errorMessage } from '../lib/api.js';
 import { loadConfig } from '../lib/config.js';
 import { createUI } from '../lib/ui.js';
-import { Session, SLASH_HINT } from '../lib/session.js';
+import { Session, SLASH_HINT, echoesViaStream } from '../lib/session.js';
 import { complete } from '../lib/complete.js';
 import { renderError, renderInfo } from '../lib/render.js';
 import { createNotifier } from '../lib/notify.js';
@@ -178,6 +178,9 @@ async function main() {
   if (mode === 'interactive') {
     ui.start({
       onLine: async (line) => {
+        // Synchronous, before any await: the row above the cursor is still
+        // the echoed input. Its rendering arrives over the stream instead.
+        if (echoesViaStream(line)) ui.eraseSubmitted(line);
         try {
           await session.handleInput(line);
         } catch (err) {

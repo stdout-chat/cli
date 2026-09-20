@@ -85,3 +85,18 @@ test('without a completer readline behaves as before (a literal tab is inserted)
   assert.deepEqual(u.lines, ['/n\t']);
   u.ui.close();
 });
+
+test('eraseSubmitted wipes the echoed input row(s) above the cursor, then re-prompts on the next print', async () => {
+  const u = makeUI();
+  await u.type('hello\r');
+  assert.deepEqual(u.lines, ['hello']);
+  const before = u.out().length;
+  u.ui.eraseSubmitted('hello');
+  const tail = u.out().slice(before);
+  assert.match(tail, /\x1b\[1A/, 'cursor moved up one row');
+  assert.match(tail, /\x1b\[2K/, 'that row was cleared');
+  assert.equal((tail.match(/\x1b\[1A/g) || []).length, 1, 'a short line is one row');
+  u.ui.eraseSubmitted('x'.repeat(200)); // 80 columns → "> " + 200 chars = 3 rows
+  assert.equal((u.out().slice(before).match(/\x1b\[1A/g) || []).length, 4, 'a wrapped line erases every row it took');
+  u.ui.close();
+});
