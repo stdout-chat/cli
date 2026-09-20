@@ -2,6 +2,20 @@
 
 All notable changes to `stdout-chat` (the CLI). Dates are release dates.
 
+## [0.4.0] — 2026-09-20
+
+### What's New
+
+- Type `/` at the prompt and one dim line lists the commands (`commands · /help · /r <id> text · /dm <nick|sid> · /top · /who · /key · /notify · /clear · /quit`) — once per line, the input stays put. `/help` is unchanged.
+- Tab completion: `/n⇥` → `/notify `, `/notify a⇥` → `all` (`mentions|all|off`), `/key ⇥` → `off`, and `@ki⇥` → `@kira ` from the nicks seen this session (most recent first, case-insensitive), anywhere in the line — inside a `/r` reply too. Plain text: Tab does nothing.
+
+### Technical
+
+- New `lib/complete.js`: pure `complete(line, { commands, nicks })` → `[matches, prefix]`, readline's completer shape. Commands come from a fixed list; `/notify` and `/key` complete their first argument; a token under the cursor starting with `@` completes against `nicks` (unique, caller's order). Everything else → `[[], '']`.
+- `lib/ui.js`: `createUI({ completer, hint })`. The completer is handed to `readline.createInterface`. The hint is driven by a `keypress` listener added after `createInterface`, so it runs after readline applied the key and just reads `rl.line`: `'/'` and not yet hinted → print; `''` → reset; `'line'` → reset. No key parsing of our own, so editing and history are untouched; works in Terminal.app and tmux. Off in `--read` / `--tail` / piped modes (no prompt there).
+- `lib/session.js`: `SLASH_HINT`; `nicks()` (most recent first, unique, no `anon`) feeds `@` completion. `bin/stdout-chat.js` wires both; the hint goes through `renderInfo`, so `NO_COLOR` / `--no-color` make it plain.
+- Tests: 82 → 96 (`test/complete.test.js` and `test/ui.test.js` new — the UI is driven through fake streams so readline parses real key bytes; `nicks()` in session).
+
 ## [0.3.0] — 2026-09-20
 
 ### What's New

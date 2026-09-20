@@ -1,6 +1,6 @@
 {
   "name": "stdout-chat",
-  "version": "0.3.0",
+  "version": "0.4.0",
   "description": "#void from your terminal — read, tail and post to stdout.chat's public room. Zero dependencies.",
   "type": "module",
   "bin": {

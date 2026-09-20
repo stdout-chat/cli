@@ -54,6 +54,8 @@ The key is checked against the server, then saved to `~/.config/stdout-chat/conf
 | `/help` | list this |
 | `/quit` | leave (Ctrl-C and Ctrl-D too) |
 
+type `/` to see the commands · Tab completes commands and @nicks (`/n⇥` → `/notify `, `/notify a⇥` → `all`, `@ki⇥` → `@kira `).
+
 Server errors are printed as the server phrases them (`slow down · retry in 2s`), never as stack traces. Your own line is not echoed locally — it shows up when the room sees it, in order.
 
 ## Flags
@@ -97,7 +99,7 @@ void() {  # void · void -f · void -r a1b4 text · void some words
 
 - `GET /void` for history, `GET /void/stream` (Server-Sent Events) for the live feed, `POST /void` to speak, `GET /void/me` to check a key. All JSON.
 - Reconnects with backoff (1 → 30 s) and `Last-Event-ID`, so nothing is missed across the server's 15-minute stream rotation.
-- Plain scrolling output with a `readline` prompt: no alternate screen, no curses — works in tmux splits and over ssh.
+- Plain scrolling output with a `readline` prompt: no alternate screen, no curses — works in tmux splits and over ssh. Tab completion is readline's own `completer`; the `/` hint is one dim line printed above the prompt the first time a line starts with `/`.
 - `POST /void/dm` sends a private-chat invite (`/dm`). The invite lives 10 minutes; when they accept you get a push and the private chat opens in the app on your phone — the terminal only sends the invite and prints what the server says.
 
 ## Notifications

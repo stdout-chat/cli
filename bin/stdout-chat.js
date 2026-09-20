@@ -5,7 +5,8 @@ import process from 'node:process';
 import { createApi, DEFAULT_API, errorMessage } from '../lib/api.js';
 import { loadConfig } from '../lib/config.js';
 import { createUI } from '../lib/ui.js';
-import { Session } from '../lib/session.js';
+import { Session, SLASH_HINT } from '../lib/session.js';
+import { complete } from '../lib/complete.js';
 import { renderError, renderInfo } from '../lib/render.js';
 import { createNotifier } from '../lib/notify.js';
 
@@ -26,7 +27,7 @@ usage: npx stdout-chat [options]
 
 at the prompt:
   /help  /r <id> text  /dm <nick|sid>  /top  /who  /key sc_…  /key off  /notify  /clear  /quit
-  anything else is posted to #void
+  anything else is posted to #void · type / to see the commands · Tab completes commands and @nicks
 
 desktop banners (macOS / Linux) when someone replies to you or writes @you —
 only while the prompt or --tail is running · /notify mentions|all|off
@@ -106,11 +107,15 @@ async function main() {
       : (process.stdin.isTTY && process.stdout.isTTY) ? 'interactive'
         : 'follow'; // piped: history + stream, no prompt
 
-  const ui = createUI();
+  let session = null; // assigned below; the completer only runs on Tab, at the prompt
+  const ui = createUI({
+    completer: (line) => complete(line, { nicks: session ? session.nicks() : [] }),
+    hint: renderInfo(SLASH_HINT, { color }),
+  });
   const stop = new AbortController();
   let closing = false;
 
-  const session = new Session({
+  session = new Session({
     api,
     print: ui.print,
     color,

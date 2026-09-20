@@ -1,6 +1,6 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { Session, HINT_NO_KEY } from '../lib/session.js';
+import { Session, HINT_NO_KEY, SLASH_HINT } from '../lib/session.js';
 import { ApiError } from '../lib/api.js';
 
 const msg = (id, extra = {}) => ({ id, sid: `a${id.toString(36).padStart(3, '0')}`, username: 'kira', tag: 'c31d', text: `line ${id}`, ...extra });
@@ -363,4 +363,19 @@ test('verifyKey({ quiet }) stays silent on 401 and network errors', async () => 
   const b = make({ key: 'sc_good' });
   assert.equal((await b.s.verifyKey({ quiet: true })).username, 'kira');
   assert.equal(b.out.length, 0);
+});
+
+// ── completion source ────────────────────────────────────────────────────
+
+test('nicks(): most recent first, unique, anon and empty skipped; feeds @-completion', async () => {
+  const { s } = make();
+  assert.deepEqual(s.nicks(), []);
+  await s.loadHistory(); // kira ×2
+  s.handleEvent(ev('msg', msg(3, { username: 'mox' }), 3));
+  s.handleEvent(ev('msg', msg(4, { username: '', tag: 'zz9' }), 4));
+  s.handleEvent(ev('msg', msg(5, { username: 'nova' }), 5));
+  s.handleEvent(ev('msg', msg(6, { username: 'kira' }), 6));
+  s.handleEvent(ev('msg', msg(7, { username: 'mox' }), 7));
+  assert.deepEqual(s.nicks(), ['mox', 'kira', 'nova']);
+  assert.match(SLASH_HINT, /^commands · \/help · .* · \/quit$/);
 });
