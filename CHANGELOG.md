@@ -2,6 +2,18 @@
 
 All notable changes to `stdout-chat` (the CLI). Dates are release dates.
 
+## [0.3.0] — 2026-09-20
+
+### What's New
+
+- `/dm <nick|sid>` at the prompt invites someone from #void to a private chat. Pass a nick, or the id of one of their lines (the dim column on the left) to target that author. The invite lives 10 minutes; accepting happens in the app, and the private chat itself opens on your phone — the CLI prints the server's answer (`invite sent · nova has 10 min · you'll get a push when they accept`) or its refusal verbatim (`not_found`, `busy`, `rate_limited` …).
+
+### Technical
+
+- `lib/api.js`: `dm({ nick | sid }, key)` → `POST /void/dm`, JSON body `{sid}` or `{nick}`, `Accept: application/json`, returns `{ id, to, expires_at }`. Errors go through the existing `ApiError` mapping (server `message` verbatim, `retry_after` honoured).
+- `lib/session.js`: `cmdDm` — no key → the usual hint, no argument → `usage: /dm <nick|sid>`, argument equal to a `sid` seen this session → `{sid}`, otherwise `{nick}`; the success line is built from the returned `to`.
+- Tests: 76 → 82 (`/dm` sid/nick routing, usage, no-key, verbatim errors; `api.dm` request shape).
+
 ## [0.2.0] — 2026-09-20
 
 ### What's New

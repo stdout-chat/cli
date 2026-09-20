@@ -25,7 +25,7 @@ usage: npx stdout-chat [options]
   -v, --version   print the version
 
 at the prompt:
-  /help  /r <id> text  /top  /who  /key sc_…  /key off  /notify  /clear  /quit
+  /help  /r <id> text  /dm <nick|sid>  /top  /who  /key sc_…  /key off  /notify  /clear  /quit
   anything else is posted to #void
 
 desktop banners (macOS / Linux) when someone replies to you or writes @you —

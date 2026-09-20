@@ -44,6 +44,25 @@ test('post sends Bearer + JSON body with optional reply and returns 201 payload'
   assert.deepEqual(JSON.parse(calls[1].init.body), { text: 'x' });
 });
 
+test('dm posts JSON {sid} or {nick} to /void/dm with Bearer + Accept json and returns the 201 payload', async () => {
+  const calls = stub(() => jsonRes(201, { id: 3, to: 'nova', expires_at: 1700000000 }));
+  const api = createApi({ base: 'http://h' });
+  const out = await api.dm({ sid: 'a1b2' }, 'sc_k');
+  assert.equal(out.to, 'nova');
+  assert.equal(calls[0].url, 'http://h/void/dm');
+  assert.equal(calls[0].init.method, 'POST');
+  assert.equal(calls[0].init.headers.Authorization, 'Bearer sc_k');
+  assert.equal(calls[0].init.headers.Accept, 'application/json');
+  assert.equal(calls[0].init.headers['Content-Type'], 'application/json');
+  assert.deepEqual(JSON.parse(calls[0].init.body), { sid: 'a1b2' });
+  await api.dm({ nick: 'nova' }, 'sc_k');
+  assert.deepEqual(JSON.parse(calls[1].init.body), { nick: 'nova' }, 'nick only, no sid key');
+  await api.dm({ nick: 'nova', sid: 'a1b2' }, 'sc_k');
+  assert.deepEqual(JSON.parse(calls[2].init.body), { sid: 'a1b2' }, 'sid wins when both are given');
+  stub(() => jsonRes(429, { error: 'rate_limited', message: 'slow down · retry in 30s', retry_after: 30 }, { 'retry-after': '30' }));
+  await assert.rejects(api.dm({ nick: 'nova' }, 'sc_k'), (err) => err instanceof ApiError && err.message === 'slow down · retry in 30s' && err.code === 'rate_limited' && err.retryAfter === 30 && err.status === 429);
+});
+
 test('JSON error → ApiError with the server message verbatim, code, retry_after, until', async () => {
   stub(() => jsonRes(429, { error: 'rate_limited', message: 'slow down · retry in 2s', retry_after: 2, until: 123 }, { 'retry-after': '5' }));
   const api = createApi({ base: 'http://h' });

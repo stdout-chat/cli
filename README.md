@@ -47,6 +47,7 @@ The key is checked against the server, then saved to `~/.config/stdout-chat/conf
 | `/r <id> text` | reply to a line — ids are the dim column on the left |
 | `/top` | this week's top authors |
 | `/who` | how many are in the room |
+| `/dm <nick|sid>` | invite them to a private chat — a line's id targets its author; the chat itself opens on your phone |
 | `/key sc_…` | save a key · `/key` shows who you are · `/key off` forgets it |
 | `/notify` | desktop banners: `/notify` shows the level · `/notify mentions` (default) · `all` · `off` |
 | `/clear` | clear the screen |
@@ -97,6 +98,7 @@ void() {  # void · void -f · void -r a1b4 text · void some words
 - `GET /void` for history, `GET /void/stream` (Server-Sent Events) for the live feed, `POST /void` to speak, `GET /void/me` to check a key. All JSON.
 - Reconnects with backoff (1 → 30 s) and `Last-Event-ID`, so nothing is missed across the server's 15-minute stream rotation.
 - Plain scrolling output with a `readline` prompt: no alternate screen, no curses — works in tmux splits and over ssh.
+- `POST /void/dm` sends a private-chat invite (`/dm`). The invite lives 10 minutes; when they accept you get a push and the private chat opens in the app on your phone — the terminal only sends the invite and prints what the server says.
 
 ## Notifications
 

@@ -14,6 +14,7 @@ function make({ key = null, api = {} } = {}) {
     async getVoid(n) { fake.calls.push(['getVoid', n]); return api.getVoid ? api.getVoid(n) : { topic: 'sounds', count: 3, top_week: [{ nick: 'kira', rank: 1 }], messages: [msg(1), msg(2)] }; },
     async getMe(k) { fake.calls.push(['getMe', k]); if (api.getMe) return api.getMe(k); if (k === 'sc_good') return { username: 'kira', tag: 'c31d', week: { rank: 4 } }; throw new ApiError('key revoked · /key new in the app', { status: 401 }); },
     async post(body, k) { fake.calls.push(['post', body, k]); if (api.post) return api.post(body, k); return { id: 99 }; },
+    async dm(body, k) { fake.calls.push(['dm', body, k]); if (api.dm) return api.dm(body, k); return { id: 7, to: body.nick || 'kira', expires_at: 0 }; },
     async openStream(o) { fake.calls.push(['openStream', o]); return api.openStream(o); },
   };
   let quit = 0;
@@ -112,6 +113,68 @@ test('input: unknown slash goes to the server; /help, /quit, /top, /who', async 
   assert.equal(out.pop(), '3 in room');
   await s.handleInput('/quit');
   assert.equal(quitCount(), 1);
+});
+
+// ── /dm ──────────────────────────────────────────────────────────────────
+
+test('/dm: a sid seen this session is sent as {sid}; the success line is built from the returned "to"', async () => {
+  const { s, out, fake } = make({ key: 'sc_good' });
+  await s.loadHistory(); // a001, a002 by kira
+  out.length = 0;
+  await s.handleInput('/dm a002');
+  assert.deepEqual(fake.calls.at(-1), ['dm', { sid: 'a002' }, 'sc_good']);
+  assert.equal(out.pop(), "invite sent · kira has 10 min · you'll get a push when they accept");
+  assert.equal(out.length, 0, 'exactly one line');
+});
+
+test('/dm: anything that is not a known sid is sent as {nick}, including a sid never seen', async () => {
+  const { s, out, fake } = make({ key: 'sc_good', api: { dm: (body) => ({ id: 8, to: body.sid ? 'mox' : body.nick, expires_at: 0 }) } });
+  await s.loadHistory();
+  await s.handleInput('/dm nova');
+  assert.deepEqual(fake.calls.at(-1), ['dm', { nick: 'nova' }, 'sc_good']);
+  assert.equal(out.pop(), "invite sent · nova has 10 min · you'll get a push when they accept");
+  await s.handleInput('/DM   a999  ');
+  assert.deepEqual(fake.calls.at(-1), ['dm', { nick: 'a999' }, 'sc_good'], 'unknown sid-looking text is a nick; command is case-insensitive and trimmed');
+  s.handleEvent(ev('msg', msg(3, { username: 'mox' }), 3));
+  out.length = 0;
+  await s.handleInput('/dm a003');
+  assert.deepEqual(fake.calls.at(-1), ['dm', { sid: 'a003' }, 'sc_good'], 'a live line counts too');
+  assert.equal(out.pop(), "invite sent · mox has 10 min · you'll get a push when they accept");
+});
+
+test('/dm: empty argument prints usage and never calls the api', async () => {
+  const { s, out, fake } = make({ key: 'sc_good' });
+  await s.handleInput('/dm');
+  assert.equal(out.pop(), 'usage: /dm <nick|sid>');
+  await s.handleInput('/dm    ');
+  assert.equal(out.pop(), 'usage: /dm <nick|sid>');
+  assert.equal(fake.calls.filter((c) => c[0] === 'dm').length, 0);
+});
+
+test('/dm: without a key → the no-key hint, no request', async () => {
+  const { s, out, fake } = make();
+  await s.handleInput('/dm nova');
+  assert.equal(out.pop(), HINT_NO_KEY);
+  assert.equal(fake.calls.filter((c) => c[0] === 'dm').length, 0);
+});
+
+test('/dm: server refusals are printed verbatim; the success line falls back to the argument when "to" is missing', async () => {
+  const answers = {
+    nova: new ApiError('nova is not taking invites right now', { status: 409, code: 'not_invitable' }),
+    ghost: new ApiError('nobody called ghost in the last 24h', { status: 404, code: 'not_found' }),
+    fast: new ApiError('slow down · retry in 30s', { status: 429, code: 'rate_limited', retryAfter: 30 }),
+  };
+  const { s, out } = make({ key: 'sc_good', api: { dm(body) { const e = answers[body.nick]; if (e) throw e; return { id: 1 }; } } });
+  await s.handleInput('/dm nova');
+  assert.equal(out.pop(), 'nova is not taking invites right now');
+  await s.handleInput('/dm ghost');
+  assert.equal(out.pop(), 'nobody called ghost in the last 24h');
+  await s.handleInput('/dm fast');
+  assert.equal(out.pop(), 'slow down · retry in 30s');
+  await s.handleInput('/dm quiet');
+  assert.equal(out.pop(), "invite sent · quiet has 10 min · you'll get a push when they accept");
+  await s.handleInput('/help');
+  assert.match(out.pop(), /\/dm <nick\|sid> {5}invite them to a private chat \(accept happens in the app\)/);
 });
 
 test('/key flows: status, bad format, invalid key, valid key saves + greets, off removes', async () => {
