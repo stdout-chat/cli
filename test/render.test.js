@@ -2,7 +2,7 @@ import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import {
   renderLine, renderReactions, renderHide, renderTopic, renderTop, renderHeader,
-  displayWidth, wrap, truncate, formatReactions, displayNick, CSI,
+  displayWidth, wrap, truncate, formatReactions, displayNick, isAddressedTo, CSI,
 } from '../lib/render.js';
 
 const plain = { color: false, width: 80 };
@@ -123,4 +123,33 @@ test('status renderers', () => {
 test('tolerates missing/extra fields', () => {
   assert.equal(renderLine({ text: 'x', extra: { deep: true } }, plain), '      anon         x');
   assert.equal(renderLine({ sid: 'zz', username: 'a', text: '  multi\n line  ', reactions: 'nope' }, plain), 'zz    a            multi line');
+});
+
+test('isAddressedTo: reply to me, @nick at start / middle / with punctuation, case-insensitive', () => {
+  const m = (text, reply) => ({ ...base, username: 'mox', text, ...(reply ? { reply } : {}) });
+  assert.equal(isAddressedTo(m('sure', { username: 'kira', text: 'x' }), 'kira'), 'reply');
+  assert.equal(isAddressedTo(m('sure', { username: 'KIRA' }), 'kira'), 'reply');
+  assert.equal(isAddressedTo(m('sure', { username: 'mox' }), 'kira'), null);
+  assert.equal(isAddressedTo(m('@kira yes'), 'kira'), 'mention');
+  assert.equal(isAddressedTo(m('well @kira yes'), 'kira'), 'mention');
+  assert.equal(isAddressedTo(m('hey @kira, fans'), 'kira'), 'mention');
+  assert.equal(isAddressedTo(m('(@kira)'), 'kira'), 'mention');
+  assert.equal(isAddressedTo(m('ends with @kira'), 'kira'), 'mention');
+  assert.equal(isAddressedTo(m('@KIRA?!'), 'kira'), 'mention');
+  assert.equal(isAddressedTo(m('@kira', { username: 'kira' }), 'kira'), 'reply', 'reply wins over mention');
+});
+
+test('isAddressedTo: longer nick, email-like, double @, no nick, bad input → null', () => {
+  const m = (text) => ({ ...base, username: 'mox', text });
+  assert.equal(isAddressedTo(m('@kiran hi'), 'kira'), null, '@kiran is someone else');
+  assert.equal(isAddressedTo(m('@kira_x hi'), 'kira'), null);
+  assert.equal(isAddressedTo(m('mail a@kira now'), 'kira'), null, 'email-like');
+  assert.equal(isAddressedTo(m('@@kira'), 'kira'), null);
+  assert.equal(isAddressedTo(m('kira without at'), 'kira'), null);
+  assert.equal(isAddressedTo(m('@kira'), null), null);
+  assert.equal(isAddressedTo(m('@kira'), ''), null);
+  assert.equal(isAddressedTo(m(null), 'kira'), null);
+  assert.equal(isAddressedTo(null, 'kira'), null);
+  assert.equal(isAddressedTo({ ...base, text: '@a.b hi' }, 'a.b'), 'mention', 'regex metacharacters in the nick are escaped');
+  assert.equal(isAddressedTo({ ...base, text: '@axb hi' }, 'a.b'), null);
 });

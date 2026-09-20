@@ -68,3 +68,17 @@ test('default path lives under ~/.config/stdout-chat (or XDG_CONFIG_HOME)', () =
   assert.equal(configDir(), path.join('/x/y', 'stdout-chat'));
   if (saved === undefined) delete process.env.XDG_CONFIG_HOME; else process.env.XDG_CONFIG_HOME = saved;
 });
+
+test('notify level round-trips; unknown values are dropped on read and on write', () => {
+  saveConfig({ key: 'sc_n', notify: 'off' });
+  assert.deepEqual(loadConfig(), { key: 'sc_n', notify: 'off' });
+  assert.deepEqual(JSON.parse(fs.readFileSync(configPath(), 'utf8')), { key: 'sc_n', notify: 'off' });
+  saveConfig({ key: 'sc_n', notify: 'loud' });
+  assert.deepEqual(loadConfig(), { key: 'sc_n' });
+  fs.writeFileSync(configPath(), JSON.stringify({ key: 'sc_n', notify: 42 }));
+  assert.deepEqual(loadConfig(), { key: 'sc_n' });
+  saveConfig({ notify: 'all' });
+  assert.deepEqual(loadConfig(), { notify: 'all' }, 'a level without a key is fine');
+  assert.equal(fs.existsSync(keyPath()), false);
+  if (process.platform !== 'win32') assert.equal(mode(configPath()), 0o600);
+});

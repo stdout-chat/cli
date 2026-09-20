@@ -113,3 +113,22 @@ test('event: bye → immediate quiet reconnect with Last-Event-ID (replayed line
     assert.equal(r.code, 0);
   } finally { s.proc.kill(); }
 });
+
+test('--tail --no-notify and STDOUT_CHAT_NO_NOTIFY still stream normally; --notify is accepted', async () => {
+  const a = await runCli(['--tail', '--no-notify'], { base: stub.base, until: /topic: silence/ });
+  assert.match(a.out, /hello from the stub/);
+  assert.equal(a.err, '');
+  assert.equal(a.code, 0);
+  const b = await runCli(['--tail', '--notify'], { base: stub.base, until: /topic: silence/, env: { STDOUT_CHAT_NO_NOTIFY: '1' } });
+  assert.match(b.out, /hello from the stub/);
+  assert.doesNotMatch(b.out, /notifications unavailable/);
+  assert.equal(b.err, '');
+  assert.equal(b.code, 0);
+});
+
+test('--read with a stored notify level is unaffected (no exec path in read mode)', async () => {
+  const r = await runCli(['--read', '-n', '1'], { base: stub.base, env: { STDOUT_CHAT_NO_NOTIFY: '' } });
+  assert.equal(r.code, 0, r.err);
+  assert.equal(r.err, '');
+  assert.doesNotMatch(r.out, /notifications/);
+});

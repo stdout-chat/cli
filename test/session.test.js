@@ -126,7 +126,7 @@ test('/key flows: status, bad format, invalid key, valid key saves + greets, off
   await s.handleInput('/key sc_good');
   assert.equal(out.pop(), 'you are kira · #4 this week');
   assert.equal(s.key, 'sc_good');
-  assert.deepEqual(cfg.saved, { key: 'sc_good', api: 'http://stand' });
+  assert.deepEqual(cfg.saved, { key: 'sc_good', api: 'http://stand', notify: 'mentions' });
   await s.handleInput('/key');
   assert.equal(out.pop(), 'you are kira · #4 this week');
   await s.handleInput('/key off');
@@ -190,4 +190,114 @@ test('runStream: 503 body printed once per outage, backoff via injected timers, 
   assert.equal(n, 4);
   assert.deepEqual(out, ['too many watchers · try curl https://stdout.chat/void', '· reconnecting']);
   assert.deepEqual(delays.filter((d) => d === 5000).length, 1);
+});
+
+// ── notifications ────────────────────────────────────────────────────────
+
+function makeNotifying(opts = {}) {
+  const r = make({ key: 'sc_good', ...opts });
+  r.banners = [];
+  r.s.notify = (title, subtitle, body) => r.banners.push([title, subtitle, body]);
+  r.s.me = { username: 'kira', tag: 'c31d' };
+  return r;
+}
+
+test('notify: a live reply to me → one banner "nick → you"; @me → "nick @you"', () => {
+  const { s, banners } = makeNotifying();
+  s.handleEvent(ev('msg', msg(10, { username: 'mox', text: 'yes, exactly', reply: { username: 'kira', text: 'line 1' } }), 10));
+  assert.deepEqual(banners, [['#void', 'mox → you', 'yes, exactly']]);
+  s.handleEvent(ev('msg', msg(10, { username: 'mox', text: 'dup', reply: { username: 'kira' } }), 10));
+  assert.equal(banners.length, 1, 'a replayed id neither prints nor notifies');
+  s.handleEvent(ev('msg', msg(11, { username: 'mox', text: 'hey @Kira, fans' }), 11));
+  assert.deepEqual(banners.at(-1), ['#void', 'mox @you', 'hey @Kira, fans']);
+});
+
+test('notify: own lines never; unaddressed lines only at level all; off silences everything', () => {
+  const { s, banners } = makeNotifying();
+  s.handleEvent(ev('msg', msg(20, { username: 'kira', text: 'talking to myself @kira' }), 20));
+  s.handleEvent(ev('msg', msg(21, { username: 'kira', text: 'reply to me', reply: { username: 'kira' } }), 21));
+  assert.equal(banners.length, 0, 'own lines');
+  s.handleEvent(ev('msg', msg(22, { username: 'mox', text: 'ceiling fans' }), 22));
+  assert.equal(banners.length, 0, 'unaddressed at mentions');
+  s.notifyLevel = 'all';
+  s.handleEvent(ev('msg', msg(23, { username: 'mox', text: 'ceiling fans again' }), 23));
+  assert.deepEqual(banners.at(-1), ['#void', 'mox', 'ceiling fans again']);
+  s.handleEvent(ev('msg', msg(24, { username: '', tag: 'zz9', text: 'from nowhere' }), 24));
+  assert.deepEqual(banners.at(-1), ['#void', 'anon', 'from nowhere']);
+  s.handleEvent(ev('msg', msg(25, { username: 'kira', text: 'still me' }), 25));
+  assert.equal(banners.length, 2, 'own lines stay silent at all');
+  s.notifyLevel = 'off';
+  s.handleEvent(ev('msg', msg(26, { username: 'mox', text: '@kira ping', reply: { username: 'kira' } }), 26));
+  assert.equal(banners.length, 2, 'off');
+});
+
+test('notify: history at startup never notifies, even when it replies to me', async () => {
+  const r = makeNotifying({ api: { getVoid: () => ({ messages: [msg(1, { username: 'mox', text: '@kira hi', reply: { username: 'kira' } })] }) } });
+  await r.s.loadHistory();
+  assert.equal(r.banners.length, 0);
+  r.s.handleEvent(ev('msg', msg(2, { username: 'mox', text: '@kira now live' }), 2));
+  assert.equal(r.banners.length, 1);
+});
+
+test('notify: without a nick (no key in --tail), mentions cannot match but all still works', () => {
+  const r = makeNotifying({ key: null });
+  r.s.me = null;
+  r.s.handleEvent(ev('msg', msg(30, { username: 'mox', text: '@kira?', reply: { username: 'kira' } }), 30));
+  assert.equal(r.banners.length, 0);
+  r.s.notifyLevel = 'all';
+  r.s.handleEvent(ev('msg', msg(31, { username: 'mox', text: 'anyone' }), 31));
+  assert.deepEqual(r.banners, [['#void', 'mox', 'anyone']]);
+});
+
+test('notify: no hook injected (read / follow modes) → nothing happens at any level', () => {
+  const { s, out } = make({ key: 'sc_good' });
+  s.me = { username: 'kira' };
+  s.notifyLevel = 'all';
+  s.handleEvent(ev('msg', msg(40, { username: 'mox', text: '@kira', reply: { username: 'kira' } }), 40));
+  assert.equal(out.length, 1, 'line printed, no crash');
+});
+
+test('/notify: shows the level, validates, persists via saveConfig, /key keeps the level', async () => {
+  const { s, out, cfg, banners } = makeNotifying();
+  await s.handleInput('/notify');
+  assert.equal(out.pop(), 'notifications: mentions');
+  await s.handleInput('/notify loud');
+  assert.equal(out.pop(), 'usage: /notify mentions · /notify all · /notify off');
+  assert.equal(cfg.saved, null);
+  await s.handleInput('/notify OFF');
+  assert.equal(out.pop(), 'notifications: off');
+  assert.equal(s.notifyLevel, 'off');
+  assert.deepEqual(cfg.saved, { key: 'sc_good', api: 'http://stand', notify: 'off' });
+  s.handleEvent(ev('msg', msg(50, { username: 'mox', text: '@kira', reply: { username: 'kira' } }), 50));
+  assert.equal(banners.length, 0);
+  await s.handleInput('/key sc_good');
+  assert.deepEqual(cfg.saved, { key: 'sc_good', api: 'http://stand', notify: 'off' }, '/key does not reset the level');
+  await s.handleInput('/notify all');
+  assert.deepEqual(cfg.saved, { key: 'sc_good', api: 'http://stand', notify: 'all' });
+  s.handleEvent(ev('msg', msg(51, { username: 'mox', text: 'anything' }), 51));
+  assert.equal(banners.length, 1);
+  await s.handleInput('/help');
+  assert.match(out.pop(), /\/notify/);
+});
+
+test('/notify without a key persists the level alone; a failing save is reported softly', async () => {
+  const a = makeNotifying({ key: null });
+  a.s.key = null;
+  await a.s.handleInput('/notify all');
+  assert.deepEqual(a.cfg.saved, { key: undefined, api: 'http://stand', notify: 'all' });
+  const b = makeNotifying();
+  b.cfg.saveConfig = () => { throw new Error('EROFS: read-only'); };
+  await b.s.handleInput('/notify off');
+  assert.equal(b.s.notifyLevel, 'off', 'the session honours the level even when the disk refuses');
+  assert.match(b.out.pop(), /^set for this session only · /);
+});
+
+test('verifyKey({ quiet }) stays silent on 401 and network errors', async () => {
+  const a = make({ key: 'sc_bad' });
+  assert.equal(await a.s.verifyKey({ quiet: true }), null);
+  assert.equal(a.out.length, 0);
+  assert.equal(a.s.key, 'sc_bad');
+  const b = make({ key: 'sc_good' });
+  assert.equal((await b.s.verifyKey({ quiet: true })).username, 'kira');
+  assert.equal(b.out.length, 0);
 });
