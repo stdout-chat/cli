@@ -29,9 +29,13 @@ test('/notify completes its argument to mentions|all|off; /key offers off only',
   assert.deepEqual(complete('/key sc_abc'), [[], 'sc_abc'], 'never invents keys');
 });
 
-test('other commands\' arguments get nothing (/r id, /dm nick)', () => {
-  assert.deepEqual(complete('/r a1'), [[], '']);
-  assert.deepEqual(complete('/dm no'), [[], '']);
+test('/r and /dm complete their first argument to a nick without @; the reply text itself is plain', () => {
+  assert.deepEqual(complete('/r ki', { nicks }), [['Kira ', 'kira ', 'kip '], 'ki']);
+  assert.deepEqual(complete('/R ', { nicks }), [['mox ', 'Kira ', 'nova ', 'kira ', 'kip '], ''], 'a bare argument lists everyone, most recent first');
+  assert.deepEqual(complete('/reply mo', { nicks }), [['mox '], 'mo']);
+  assert.deepEqual(complete('/dm no', { nicks }), [['nova '], 'no']);
+  assert.deepEqual(complete('/r a1', { nicks }), [[], 'a1'], 'never invents a nick');
+  assert.deepEqual(complete('/r kira th', { nicks }), [[], ''], 'after the nick, plain text');
   assert.deepEqual(complete('/top '), [[], '']);
 });
 

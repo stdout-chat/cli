@@ -3,7 +3,9 @@ import assert from 'node:assert/strict';
 import { Session, HINT_NO_KEY, SLASH_HINT } from '../lib/session.js';
 import { ApiError } from '../lib/api.js';
 
-const msg = (id, extra = {}) => ({ id, sid: `a${id.toString(36).padStart(3, '0')}`, username: 'kira', tag: 'c31d', text: `line ${id}`, ...extra });
+process.env.TZ = 'UTC'; // the time column is local time; pin the zone so HH:MM is stable
+
+const msg = (id, extra = {}) => ({ id, sid: `a${id.toString(36).padStart(3, '0')}`, username: 'kira', tag: 'c31d', text: `line ${id}`, ts: 1758285900, ...extra });
 const ev = (event, data, id) => ({ event, id: id == null ? '' : String(id), data: JSON.stringify(data) });
 
 function make({ key = null, api = {} } = {}) {
@@ -27,8 +29,8 @@ test('history: header, lines, dedupe, lastEventId, greeting hint without key', a
   await s.loadHistory();
   s.greet();
   assert.equal(out[0], '#void · sounds · 3 in room');
-  assert.equal(out[1], 'a001  kira         line 1');
-  assert.equal(out[2], 'a002  kira         line 2');
+  assert.equal(out[1], '12:45  kira         line 1');
+  assert.equal(out[2], '12:45  kira         line 2');
   assert.equal(out[3], HINT_NO_KEY);
   assert.equal(s.lastEventId, '2');
   assert.equal(s.printMsg(msg(2)), false, 'duplicate ids are not reprinted');
@@ -40,10 +42,10 @@ test('SSE events: msg prints, react reprints only for recent lines, hide, topic,
   await s.loadHistory();
   out.length = 0;
   assert.equal(s.handleEvent(ev('msg', msg(3), 3)), undefined);
-  assert.equal(out.pop(), 'a003  kira         line 3');
+  assert.equal(out.pop(), '12:45  kira         line 3');
   assert.equal(s.lastEventId, '3');
   s.handleEvent(ev('react', { id: 3, reactions: [['❤️', 2]] }));
-  assert.equal(out.pop(), 'a003  ❤️ 2');
+  assert.equal(out.pop(), '12:45  ❤️ 2');
   assert.equal(s.lines.get('3').reactions[0][1], 2);
   for (let i = 4; i <= 9; i++) s.handleEvent(ev('msg', msg(i), i));
   out.length = 0;
@@ -52,9 +54,9 @@ test('SSE events: msg prints, react reprints only for recent lines, hide, topic,
   assert.equal(s.lines.get('3').reactions[0][1], 5);
   s.handleEvent(ev('react', { id: 777, reactions: [] }));
   s.handleEvent(ev('hide', { id: 3 }));
-  assert.equal(out.pop(), 'a003  ↳ message removed');
+  assert.equal(out.pop(), '12:45  ↳ message removed');
   s.handleEvent(ev('hide', { id: 12345 }));
-  assert.equal(out.length, 0, 'hide for an unknown line without sid prints nothing');
+  assert.equal(out.length, 0, 'hide for a line never seen here prints nothing');
   s.handleEvent(ev('topic', { topic: 'silence' }));
   assert.equal(out.pop(), '// topic: silence');
   assert.equal(s.topic, 'silence');
@@ -75,8 +77,8 @@ test('nick·tag appears once two tags share a nick this session', () => {
   const { s, out } = make();
   s.printMsg(msg(1, { username: 'sam', tag: 'aaaa' }));
   s.printMsg(msg(2, { username: 'sam', tag: 'bbbb' }));
-  assert.equal(out[0], 'a001  sam          line 1');
-  assert.equal(out[1], 'a002  sam·bbbb     line 2');
+  assert.equal(out[0], '12:45  sam          line 1');
+  assert.equal(out[1], '12:45  sam·bbbb     line 2');
 });
 
 test('input: empty ignored, post without key hints, post with key hits api and does not echo', async () => {
@@ -91,14 +93,30 @@ test('input: empty ignored, post without key hints, post with key hits api and d
   assert.equal(out.length, 0, 'no local echo');
 });
 
-test('input: /r reply, usage, server error printed verbatim', async () => {
-  const { s, out, fake } = make({ key: 'sc_good', api: { post(body) { if (body.reply === 'dead') throw new ApiError('reply target gone', { status: 404 }); return { id: 1 }; } } });
-  await s.handleInput('/r a1b2 yes exactly');
-  assert.deepEqual(fake.calls.at(-1), ['post', { text: 'yes exactly', reply: 'a1b2' }, 'sc_good']);
-  await s.handleInput('/r a1b2');
-  assert.equal(out.pop(), 'usage: /r <id> text');
-  await s.handleInput('/r dead hi');
-  assert.equal(out.pop(), 'reply target gone');
+test('input: /r <nick> replies to their latest visible line; a known sid still works; unknown target, usage, server error', async () => {
+  const { s, out, fake } = make({ key: 'sc_good', api: { post(body) { if (body.reply === 'a001') throw new ApiError('reply target gone', { status: 404 }); return { id: 1 }; } } });
+  await s.loadHistory(); // a001, a002 by kira
+  s.handleEvent(ev('msg', msg(3, { username: 'Mox' }), 3));
+  s.handleEvent(ev('msg', msg(4, { username: 'Mox' }), 4));
+  out.length = 0;
+  await s.handleInput('/r mox yes exactly');
+  assert.deepEqual(fake.calls.at(-1), ['post', { text: 'yes exactly', reply: 'a004' }, 'sc_good'], 'latest line by that nick, case-insensitive');
+  await s.handleInput('/r @KIRA ok');
+  assert.deepEqual(fake.calls.at(-1), ['post', { text: 'ok', reply: 'a002' }, 'sc_good'], 'a leading @ is fine');
+  assert.equal(out.length, 0, 'no local echo');
+  s.handleEvent(ev('hide', { id: 4 }));
+  out.length = 0;
+  await s.handleInput('/reply mox still there?');
+  assert.deepEqual(fake.calls.at(-1), ['post', { text: 'still there?', reply: 'a003' }, 'sc_good'], 'hidden lines are skipped');
+  const posts = fake.calls.filter((c) => c[0] === 'post').length;
+  await s.handleInput('/r nova hi');
+  assert.deepEqual(out.splice(-2), ['> /r nova hi', 'no line from nova here yet · /r <nick> text'], 'the erased input comes back above the hint');
+  assert.equal(fake.calls.filter((c) => c[0] === 'post').length, posts, 'nothing sent for an unknown target');
+  await s.handleInput('/r mox');
+  assert.equal(out.pop(), 'usage: /r <nick> text');
+  await s.handleInput('/r a001 by id');
+  assert.deepEqual(fake.calls.at(-1), ['post', { text: 'by id', reply: 'a001' }, 'sc_good'], 'a sid seen this session is accepted as-is');
+  assert.deepEqual(out.splice(-2), ['> /r a001 by id', 'reply target gone'], 'server error printed verbatim under the restored line');
 });
 
 test('input: unknown slash goes to the server; /help, /quit, /top, /who', async () => {
@@ -106,7 +124,7 @@ test('input: unknown slash goes to the server; /help, /quit, /top, /who', async 
   await s.handleInput('/dance');
   assert.deepEqual(fake.calls.at(-1), ['post', { text: '/dance', reply: null }, 'sc_good']);
   await s.handleInput('/help');
-  assert.match(out.pop(), /\/r <id> text/);
+  assert.match(out.pop(), /\/r <nick> text {5}reply to their latest line/);
   await s.handleInput('/top');
   assert.equal(out.pop(), '#1 kira 👑');
   await s.handleInput('/who');
@@ -145,9 +163,9 @@ test('/dm: anything that is not a known sid is sent as {nick}, including a sid n
 test('/dm: empty argument prints usage and never calls the api', async () => {
   const { s, out, fake } = make({ key: 'sc_good' });
   await s.handleInput('/dm');
-  assert.equal(out.pop(), 'usage: /dm <nick|sid>');
+  assert.equal(out.pop(), 'usage: /dm <nick>');
   await s.handleInput('/dm    ');
-  assert.equal(out.pop(), 'usage: /dm <nick|sid>');
+  assert.equal(out.pop(), 'usage: /dm <nick>');
   assert.equal(fake.calls.filter((c) => c[0] === 'dm').length, 0);
 });
 
@@ -174,7 +192,7 @@ test('/dm: server refusals are printed verbatim; the success line falls back to 
   await s.handleInput('/dm quiet');
   assert.equal(out.pop(), "invite sent · quiet has 10 min · you'll get a push when they accept");
   await s.handleInput('/help');
-  assert.match(out.pop(), /\/dm <nick\|sid> {5}invite them to a private chat \(accept happens in the app\)/);
+  assert.match(out.pop(), /\/dm <nick> {9}invite them to a private chat \(accept happens in the app\)/);
 });
 
 test('/key flows: status, bad format, invalid key, valid key saves + greets, off removes', async () => {
@@ -229,7 +247,7 @@ test('runStream: consumes events, sends Last-Event-ID, reconnects after bye imme
   assert.equal(fake.calls[0][1].lastEventId, null);
   assert.equal(fake.calls[1][1].lastEventId, '10');
   assert.equal(fake.calls[2][1].lastEventId, '11');
-  assert.deepEqual(out, ['a00a  kira         line 10', 'a00b  kira         line 11']);
+  assert.deepEqual(out, ['12:45  kira         line 10', '12:45  kira         line 11']);
 });
 
 test('runStream: 503 body printed once per outage, backoff via injected timers, "· reconnecting" after 5s', async () => {
@@ -397,10 +415,11 @@ test('echoesViaStream: posts and /r replies yes; commands, unknown slashes, empt
 
 test('a failed post puts the erased input back (dim, with prompt) above the error; commands do not', async () => {
   const { s, out } = make({ key: 'sc_good', api: { post() { throw new ApiError('slow down · retry in 2s', { status: 429 }); } } });
+  await s.loadHistory(); // kira's lines, so /r kira resolves
   await s.handleInput('how re you');
   assert.deepEqual(out.splice(-2), ['> how re you', 'slow down · retry in 2s']);
-  await s.handleInput('/r a1b2 yes');
-  assert.deepEqual(out.splice(-2), ['> /r a1b2 yes', 'slow down · retry in 2s']);
+  await s.handleInput('/r kira yes');
+  assert.deepEqual(out.splice(-2), ['> /r kira yes', 'slow down · retry in 2s']);
   await s.handleInput('/dance');
   assert.deepEqual(out.splice(-1), ['slow down · retry in 2s'], 'unknown slash was never erased');
 });

@@ -10,10 +10,10 @@ Zero dependencies · Node ≥ 18 · ESM · MIT · no telemetry.
 
 ```
 #void · what's the most underrated sound? · 3 in room
-a1b2  kira 👑      the hum of a fridge at 3am  ❤️ 2 😂 1
-a1b4  mox          → kira  ceiling fans, obviously
-      ↳ the hum of a fridge at 3am
-a1b5  anon·c31d    ping
+12:45  kira 👑      the hum of a fridge at 3am  ❤️ 2 😂 1
+12:47  mox          → kira  ceiling fans, obviously
+       ↳ the hum of a fridge at 3am
+12:47  anon·c31d    ping
 type /key sc_… to post · get it in the app: /key
 >
 ```
@@ -44,10 +44,10 @@ The key is checked against the server, then saved to `~/.config/stdout-chat/conf
 | at the `>` prompt | |
 |---|---|
 | `anything else` | posted to #void as-is (`@nick` mentions pass through) |
-| `/r <id> text` | reply to a line — ids are the dim column on the left |
+| `/r <nick> text` | reply to their latest line (Tab completes the nick) |
 | `/top` | this week's top authors |
 | `/who` | how many are in the room |
-| `/dm <nick|sid>` | invite them to a private chat — a line's id targets its author; the chat itself opens on your phone |
+| `/dm <nick>` | invite them to a private chat — the chat itself opens on your phone |
 | `/key sc_…` | save a key · `/key` shows who you are · `/key off` forgets it |
 | `/notify` | desktop banners: `/notify` shows the level · `/notify mentions` (default) · `all` · `off` |
 | `/clear` | clear the screen |
