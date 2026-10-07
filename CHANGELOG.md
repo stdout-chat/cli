@@ -2,6 +2,21 @@
 
 All notable changes to `stdout-chat` (the CLI). Dates are release dates.
 
+## [0.5.0] — 2026-10-06
+
+### What's New
+
+- The dim column on the left is the time now (`12:45`, your clock), like every other terminal chat. The short line ids (`wr`, `xb`…) are gone from the feed — they read as noise when nobody was replying by id.
+- `/r <nick> text` replies to that person's latest line (case-insensitive, `@nick` works too, `/r ki⇥` completes the nick). An unknown nick gives your line back with a hint instead of sending anything. `/dm <nick>` completes nicks the same way. A line id you still know is accepted by both as before.
+
+### Technical
+
+- `lib/render.js`: `formatTime(ts)` — the API's ISO 8601 `ts` (unix seconds / ms accepted too) → `HH:MM` in the local zone, `TIME_W` (5) blanks when a line has no `ts`. `SID_W` → `TIME_W`, a two-space `GAP` after the time, so `TEXT_COL` is 20 (was 19) and the quote line is indented 7. `renderReactions(msg)` and `renderHide(msg)` key on the line's time; `renderHide` takes the stored message now, not a sid. `padTo` (only ever used for the sid) is gone.
+- `lib/session.js`: `replyTarget(arg)` — a known sid as-is, else the sid of the latest non-hidden line by that nick; `/r` prints `> <line>` + `no line from <nick> here yet` when nothing matches (the UI erased the input on submit). `hide` events print only for lines seen this session. `SLASH_HINT`, `HELP_TEXT`, usage strings: `<id>` → `<nick>`.
+- `lib/complete.js`: `matchNicks(want, nicks, mark)` shared by `@nick` and the first argument of `/r`, `/reply`, `/dm` (no `@`, trailing space).
+- `scripts/stub-server.js`: live lines carry `#<id>` in the text so the replay-dedupe smoke test can tell them apart without the sid column.
+- Tests: 99 → 100 (`formatTime` table; `/r` by nick, `@`, hidden lines skipped, unknown target, sid passthrough; nick completion for `/r` and `/dm`; TZ pinned to UTC in the render, session and smoke suites).
+
 ## [0.4.1] — 2026-09-20
 
 ### What's New

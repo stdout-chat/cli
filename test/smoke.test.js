@@ -28,7 +28,7 @@ function runCli(args, { base, timeoutMs = 4000, until = null, env = {} } = {}) {
   return new Promise((resolve) => {
     const cfgDir = fs.mkdtempSync(path.join(os.tmpdir(), 'stdout-chat-smoke-'));
     const p = spawn(process.execPath, [BIN, '--api', base, '--no-color', ...args], {
-      env: { ...process.env, STDOUT_CHAT_CONFIG_DIR: cfgDir, ...env },
+      env: { ...process.env, TZ: 'UTC', STDOUT_CHAT_CONFIG_DIR: cfgDir, ...env }, // TZ pinned: the time column is local time
       stdio: ['pipe', 'pipe', 'pipe'],
     });
     let out = '';
@@ -57,17 +57,17 @@ test('--read prints the header and the history, then exits 0', async () => {
   assert.equal(r.code, 0, r.err);
   const lines = r.out.trimEnd().split('\n');
   assert.equal(lines[0], "#void · what's the most underrated sound? · 3 in room");
-  assert.equal(lines[1], 'a1b2  kira 👑      the hum of a fridge at 3am  ❤️ 2');
+  assert.equal(lines[1], '00:00  kira 👑      the hum of a fridge at 3am  ❤️ 2'); // stub history ts 2025-09-19T00:00:00Z
   assert.equal(r.err, '');
 });
 
 test('--tail streams msg/react/topic/hide and exits cleanly on SIGINT', async () => {
   const r = await runCli(['--tail'], { base: stub.base, until: /topic: silence/ });
-  assert.match(r.out, /^aaa2  mox          → kira {2}hello from the stub\n {6}↳ the hum of a fridge at 3am\n/m);
+  assert.match(r.out, /^\d\d:\d\d  mox          → kira {2}hello from the stub #\d+\n {7}↳ the hum of a fridge at 3am\n/m);
   assert.match(r.out, /^\/\/ topic: silence$/m);
   assert.doesNotMatch(r.out, /#void ·/, '--tail prints no history header');
   // react/hide for id 1 arrive, but id 1 was never seen in --tail mode → nothing to reprint
-  assert.doesNotMatch(r.out, /^a1b2  ❤️ 3/m);
+  assert.doesNotMatch(r.out, /^00:00  ❤️ 3/m);
   assert.doesNotMatch(r.out, /message removed/);
   assert.equal(r.err, '');
   assert.equal(r.code, 0);
@@ -76,10 +76,10 @@ test('--tail streams msg/react/topic/hide and exits cleanly on SIGINT', async ()
 test('piped follow mode: history + stream + react reprint + hide', async () => {
   const r = await runCli([], { base: stub.base, until: /message removed/ });
   assert.match(r.out, /^#void · /m);
-  assert.match(r.out, /^a1b2  kira 👑 {6}the hum of a fridge at 3am {2}❤️ 2$/m);
-  assert.match(r.out, /^a1b2  ❤️ 3 😂 1$/m, 'react reprint for a recent line');
+  assert.match(r.out, /^00:00  kira 👑 {6}the hum of a fridge at 3am {2}❤️ 2$/m);
+  assert.match(r.out, /^00:00  ❤️ 3 😂 1$/m, 'react reprint for a recent line');
   assert.match(r.out, /hello from the stub/);
-  assert.match(r.out, /^a1b2  ↳ message removed$/m);
+  assert.match(r.out, /^00:00  ↳ message removed$/m);
   assert.equal(r.err, '');
   assert.equal(r.code, 0);
 });
@@ -106,8 +106,8 @@ test('event: bye → immediate quiet reconnect with Last-Event-ID (replayed line
     const r = await runCli(['--tail'], { base: s.base, timeoutMs: 1500 });
     const hellos = r.out.match(/hello from the stub/g) || [];
     assert.ok(hellos.length >= 3, `expected several reconnect cycles, got ${hellos.length}\n${r.out}`);
-    const sids = [...r.out.matchAll(/^(\S+)  mox/gm)].map((m) => m[1]);
-    assert.equal(new Set(sids).size, sids.length, 'each stub line printed exactly once despite replay');
+    const ids = [...r.out.matchAll(/hello from the stub #(\d+)/g)].map((m) => m[1]);
+    assert.equal(new Set(ids).size, ids.length, 'each stub line printed exactly once despite replay');
     assert.doesNotMatch(r.out, /reconnecting/);
     assert.equal(r.err, '');
     assert.equal(r.code, 0);

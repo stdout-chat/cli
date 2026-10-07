@@ -13,7 +13,7 @@ const DELAY = Number(process.env.STUB_DELAY_MS || 150);
 let topic = "what's the most underrated sound?";
 let nextId = 2;
 const messages = [
-  { id: 1, sid: 'a1b2', username: 'kira', tag: 'c31d', text: 'the hum of a fridge at 3am', ts: 1758240000, reactions: [['❤️', 2]], top: 1 },
+  { id: 1, sid: 'a1b2', username: 'kira', tag: 'c31d', text: 'the hum of a fridge at 3am', ts: '2025-09-19T00:00:00.000Z', reactions: [['❤️', 2]], top: 1 },
 ];
 const watchers = new Set();
 
@@ -43,7 +43,7 @@ async function runScript(res) {
     if (!watchers.has(res)) return;
     switch (step) {
       case 'msg': {
-        const m = { id: nextId++, sid: sid(nextId - 1), username: 'mox', tag: '9f2e', text: 'hello from the stub', ts: Date.now() / 1000 | 0,
+        const m = { id: nextId++, sid: sid(nextId - 1), username: 'mox', tag: '9f2e', text: `hello from the stub #${nextId - 1}`, ts: new Date().toISOString(),
           reply: { username: 'kira', text: 'the hum of a fridge at 3am', gone: false } };
         messages.push(m);
         broadcast('msg', m, m.id);
@@ -98,7 +98,7 @@ const server = http.createServer(async (req, res) => {
     if (!text) return send(res, 422, { error: 'empty', message: 'say something' });
     if (text.length > 200) return send(res, 413, { error: 'too_long', message: `too long · 200 chars max (you sent ${text.length})` });
     if (text.startsWith('/')) return send(res, 422, { error: 'unknown_command', message: 'command not found' });
-    const m = { id: nextId++, sid: sid(nextId - 1), username: 'kira', tag: 'c31d', text, ts: Date.now() / 1000 | 0 };
+    const m = { id: nextId++, sid: sid(nextId - 1), username: 'kira', tag: 'c31d', text, ts: new Date().toISOString() };
     if (body.reply) {
       const parent = messages.find((x) => x.sid === String(body.reply));
       if (!parent) return send(res, 404, { error: 'reply_gone', message: 'reply target gone' });

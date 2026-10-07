@@ -26,7 +26,7 @@ usage: npx stdout-chat [options]
   -v, --version   print the version
 
 at the prompt:
-  /help  /r <id> text  /dm <nick|sid>  /top  /who  /key sc_…  /key off  /notify  /clear  /quit
+  /help  /r <nick> text  /dm <nick>  /top  /who  /key sc_…  /key off  /notify  /clear  /quit
   anything else is posted to #void · type / to see the commands · Tab completes commands and @nicks
 
 desktop banners (macOS / Linux) when someone replies to you or writes @you —
