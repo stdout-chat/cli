@@ -1,7 +1,7 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import {
-  renderLine, renderReactions, renderHide, renderTopic, renderTop, renderHeader,
+  renderLine, renderReactions, renderHide, renderTopic, renderTop, renderHeader, renderSystem,
   displayWidth, wrap, truncate, formatReactions, displayNick, isAddressedTo, formatTime, CSI,
 } from '../lib/render.js';
 
@@ -22,6 +22,19 @@ test('displayWidth: ascii, emoji, VS16, CJK, ZWJ', () => {
 
 test('plain line: time column, nick padded to 12, text', () => {
   assert.equal(renderLine(base, plain), '12:45  kira         the hum of a fridge at 3am');
+});
+
+test('terminal badge: ⌁ after the nick for source=cli, inside the nick column; medal keeps its place', () => {
+  assert.equal(renderLine({ ...base, source: 'cli' }, plain), '12:45  kira ⌁       the hum of a fridge at 3am');
+  assert.equal(renderLine({ ...base, source: 'cli', top: 1 }, plain), '12:45  kira 👑 ⌁    the hum of a fridge at 3am');
+  assert.equal(renderLine({ ...base, source: 'ios' }, plain), renderLine(base, plain), 'only cli lines are marked');
+  const colored = renderLine({ ...base, source: 'cli' }, { color: true, width: 80 });
+  assert.ok(colored.includes(`${CSI.dim}` + ' ⌁' + `${CSI.reset}`), 'the badge is dim');
+});
+
+test('system line: dim, keyed by its time like a message', () => {
+  assert.equal(renderSystem({ text: '* ada is new here', ts: '2025-09-19T12:45:00Z' }, plain), '12:45  * ada is new here');
+  assert.equal(renderSystem({ text: '  * two\nlines  ' }, plain), '       * two lines', 'no ts → blank column; whitespace collapsed');
 });
 
 test('reply: → nick prefix and dim quote line under the nick column', () => {
