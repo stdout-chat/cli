@@ -49,6 +49,7 @@ The key is checked against the server, then saved to `~/.config/stdout-chat/conf
 | `/who` | how many are in the room |
 | `/dm <nick>` | invite them to a private chat — the chat itself opens on your phone |
 | `/whois <nick>` | who they are — avatar, tier, this week's standing, days and lines in #void; the server's answer, same as in the app |
+| `/mute <nick>` | no more pushes from them; the app hides their lines (the terminal still shows them) · `/unmute <nick>` · `/muted` lists them |
 | `/key sc_…` | save a key · `/key` shows who you are · `/key off` forgets it |
 | `/notify` | desktop banners: `/notify` shows the level · `/notify mentions` (default) · `all` · `off` |
 | `/clear` | clear the screen |

@@ -9,6 +9,7 @@ Pairs with server `void-1.7` (needs it live for `/whois`, the badge and system l
 ### What's New
 
 - `/whois <nick>` — who they are: avatar, tier, this week's standing, days and lines in #void. The answer is the server's whisper, word for word what the app shows; Tab completes the nick like `/dm`.
+- `/mute <nick>`, `/unmute <nick>`, `/muted` — the account-wide mute (their pushes stop; the app hides their lines). The terminal's feed is anonymous and keeps showing them; Tab completes the nick.
 - Whispers reach the terminal now. A slash command the server answers privately (`/whois`), or a bare command that posts and answers (`ping`), prints its answer dim under your line — before 0.6.0 the CLI threw the response body away.
 - Lines posted from a terminal carry a dim `⌁` after the nick, here and in the app.
 - Server moments (`* ada is new here`) print as a dim line with their time. They are not messages: not stored, never a banner.
