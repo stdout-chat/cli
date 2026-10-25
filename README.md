@@ -48,6 +48,7 @@ The key is checked against the server, then saved to `~/.config/stdout-chat/conf
 | `/top` | this week's top authors |
 | `/who` | how many are in the room |
 | `/dm <nick>` | invite them to a private chat — the chat itself opens on your phone |
+| `/whois <nick>` | who they are — avatar, tier, this week's standing, days and lines in #void; the server's answer, same as in the app |
 | `/key sc_…` | save a key · `/key` shows who you are · `/key off` forgets it |
 | `/notify` | desktop banners: `/notify` shows the level · `/notify mentions` (default) · `all` · `off` |
 | `/clear` | clear the screen |
@@ -56,7 +57,7 @@ The key is checked against the server, then saved to `~/.config/stdout-chat/conf
 
 type `/` to see the commands · Tab completes commands and @nicks (`/n⇥` → `/notify `, `/notify a⇥` → `all`, `@ki⇥` → `@kira `).
 
-Server errors are printed as the server phrases them (`slow down · retry in 2s`), never as stack traces. Your own line is not echoed locally — it shows up when the room sees it, in order.
+Server errors are printed as the server phrases them (`slow down · retry in 2s`), never as stack traces. Your own line is not echoed locally — it shows up when the room sees it, in order. Lines posted from a terminal carry a dim `⌁` after the nick (the app shows it too); server moments like `* ada is new here` print dim with their time and are never stored.
 
 ## Flags
 
