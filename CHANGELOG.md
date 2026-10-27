@@ -2,7 +2,7 @@
 
 All notable changes to `stdout-chat` (the CLI). Dates are release dates.
 
-## [0.6.0] — unreleased
+## [0.6.0] — 2026-10-27
 
 Pairs with server `void-1.7` (needs it live for `/whois`, the badge and system lines; against an older server everything degrades to 0.5.0 behaviour).
 
