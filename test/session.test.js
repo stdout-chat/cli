@@ -135,6 +135,35 @@ test('input: unknown slash goes to the server; /help, /quit, /top, /who', async 
 
 // ── /dm ──────────────────────────────────────────────────────────────────
 
+test('a whisper on the post response is printed dim: /whois (200) and a bare command that also posts (201)', async () => {
+  const replies = { '/whois nova': { whisper: '· nova 🦅 · SHELL\n· #2 this week · 38 pts · 7 to #1' }, ping: { id: 5, whisper: 'pong · 12ms' }, hi: { id: 6 } };
+  const { s, out, fake } = make({ key: 'sc_good', api: { post(body) { return replies[body.text]; } } });
+  await s.handleInput('/whois nova');
+  assert.deepEqual(fake.calls.at(-1), ['post', { text: '/whois nova', reply: null }, 'sc_good']);
+  assert.equal(out.pop(), '· nova 🦅 · SHELL\n· #2 this week · 38 pts · 7 to #1', 'multi-line whisper printed as one dim block');
+  await s.handleInput('ping');
+  assert.equal(out.pop(), 'pong · 12ms');
+  out.length = 0;
+  await s.handleInput('hi');
+  assert.equal(out.length, 0, 'a plain post prints nothing — its echo comes over the stream');
+  assert.ok(SLASH_HINT.includes('/whois <nick>'));
+});
+
+test('sys event prints a dim server line; nothing is stored, nothing notifies', async () => {
+  const banners = [];
+  const { s, out } = make();
+  s.notify = (...b) => banners.push(b);
+  await s.loadHistory();
+  out.length = 0;
+  s.handleEvent(ev('sys', { text: '* ada is new here', ts: '2025-09-19T12:45:00Z' }));
+  assert.equal(out.pop(), '12:45  * ada is new here');
+  s.handleEvent(ev('sys', { ts: '2025-09-19T12:45:00Z' }));
+  s.handleEvent(ev('sys', { text: '   ' }));
+  assert.equal(out.length, 0, 'sys without text prints nothing');
+  assert.equal(s.lines.size, 2, 'system lines are not messages');
+  assert.equal(banners.length, 0);
+});
+
 test('/dm: a sid seen this session is sent as {sid}; the success line is built from the returned "to"', async () => {
   const { s, out, fake } = make({ key: 'sc_good' });
   await s.loadHistory(); // a001, a002 by kira

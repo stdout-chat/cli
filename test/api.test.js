@@ -90,6 +90,16 @@ test('text error body (503 too many watchers) is used verbatim; empty body → h
   await assert.rejects(createApi({ base: 'http://h' }).getVoid(), { message: 'http 502', status: 502 });
 });
 
+test('an nginx HTML error page becomes a line, not a page of tags', async () => {
+  const page = '<html>\r\n<head><title>503 Service Temporarily Unavailable</title></head>\r\n<body><center><h1>503</h1></center><hr><center>nginx</center></body></html>';
+  stub(() => new Response(page, { status: 503, headers: { 'content-type': 'text/html' } }));
+  await assert.rejects(createApi({ base: 'http://h' }).getVoid(), (e) => e instanceof ApiError && e.message === 'busy · retry in a moment' && e.status === 503);
+  stub(() => new Response('<!DOCTYPE html><html><body>502 Bad Gateway</body></html>', { status: 502 }));
+  await assert.rejects(createApi({ base: 'http://h' }).getVoid(), (e) => e.message === 'server down · retry in a moment');
+  stub(() => new Response('<html><body>413 Request Entity Too Large</body></html>', { status: 413 }));
+  await assert.rejects(createApi({ base: 'http://h' }).post({ text: 'x' }, 'sc_k'), (e) => e.message.startsWith('too long'));
+});
+
 test('network failure → "network error · <cause>", never a stack trace', async () => {
   stub(() => { const e = new TypeError('fetch failed'); e.cause = { code: 'ECONNREFUSED' }; throw e; });
   await assert.rejects(createApi({ base: 'http://h' }).getVoid(), (err) => {

@@ -6,7 +6,7 @@ const nicks = ['mox', 'Kira', 'nova', 'kira', 'mox', 'kip'];
 
 test('exact "/" offers every command, in order, replacing the slash', () => {
   assert.deepEqual(complete('/', { nicks }), [COMMANDS, '/']);
-  assert.deepEqual(COMMANDS, ['/help', '/r ', '/dm ', '/top', '/who', '/key ', '/notify ', '/clear', '/quit']);
+  assert.deepEqual(COMMANDS, ['/help', '/r ', '/dm ', '/whois ', '/mute ', '/unmute ', '/muted', '/top', '/who', '/key ', '/notify ', '/clear', '/quit']);
 });
 
 test('command prefixes: /n → "/notify " (with the trailing space), /h, /q; case-insensitive; unknown → nothing', () => {
@@ -34,6 +34,8 @@ test('/r and /dm complete their first argument to a nick without @; the reply te
   assert.deepEqual(complete('/R ', { nicks }), [['mox ', 'Kira ', 'nova ', 'kira ', 'kip '], ''], 'a bare argument lists everyone, most recent first');
   assert.deepEqual(complete('/reply mo', { nicks }), [['mox '], 'mo']);
   assert.deepEqual(complete('/dm no', { nicks }), [['nova '], 'no']);
+  assert.deepEqual(complete('/whois no', { nicks }), [['nova '], 'no'], '/whois takes a nick like /dm');
+  assert.deepEqual(complete('/unmute no', { nicks }), [['nova '], 'no'], '/mute and /unmute too');
   assert.deepEqual(complete('/r a1', { nicks }), [[], 'a1'], 'never invents a nick');
   assert.deepEqual(complete('/r kira th', { nicks }), [[], ''], 'after the nick, plain text');
   assert.deepEqual(complete('/top '), [[], '']);

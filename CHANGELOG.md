@@ -2,6 +2,26 @@
 
 All notable changes to `stdout-chat` (the CLI). Dates are release dates.
 
+## [0.6.0] — 2026-10-27
+
+Pairs with server `void-1.7` (needs it live for `/whois`, the badge and system lines; against an older server everything degrades to 0.5.0 behaviour).
+
+### What's New
+
+- `/whois <nick>` — who they are: avatar, tier, this week's standing, days and lines in #void. The answer is the server's whisper, word for word what the app shows; Tab completes the nick like `/dm`.
+- `/mute <nick>`, `/unmute <nick>`, `/muted` — the account-wide mute (their pushes stop; the app hides their lines). The terminal's feed is anonymous and keeps showing them; Tab completes the nick.
+- An nginx error page (502/503/504/413) prints as one line — `busy · retry in a moment`, `server down · retry in a moment`, `too long · …` — instead of a line of HTML tags.
+- Whispers reach the terminal now. A slash command the server answers privately (`/whois`), or a bare command that posts and answers (`ping`), prints its answer dim under your line — before 0.6.0 the CLI threw the response body away.
+- Lines posted from a terminal carry a dim `⌁` after the nick, here and in the app.
+- Server moments (`* ada is new here`) print as a dim line with their time. They are not messages: not stored, never a banner.
+
+### Technical
+
+- `lib/render.js`: `renderLine` reads `msg.source`; `'cli'` adds ` ⌁` (dim) after the nick/medal, counted inside `NICK_W` so the text column does not move. New `renderSystem({ text, ts })` — `HH:MM  text`, dim.
+- `lib/session.js`: `post()` keeps the response and prints `whisper` via `renderInfo` when it is a non-empty string; SSE `sys` → `renderSystem` (text required). `SLASH_HINT`/`HELP_TEXT` list `/whois <nick>`; the command itself still goes to the server untouched (the server owns slash semantics).
+- `lib/complete.js`: `/whois ` in `COMMANDS`, `/whois` in `NICK_ARG`.
+- Tests: 100 → 104 (badge with and without medal, `ios` source unmarked, dim escape; `renderSystem`; whisper on 200 and 201, plain post stays silent; `sys` prints, empty `sys` does not, nothing stored or notified; `/whois` nick completion).
+
 ## [0.5.0] — 2026-10-06
 
 ### What's New
